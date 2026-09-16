@@ -70,7 +70,7 @@ def load_locomo(path: str) -> List[Dict[str, Any]]:
                 pass
 
         conv_id = conv.get("sample_id", f"locomo_{conv_idx}")
-        turns, session_of_turn = {}, {} # Hoặc giữ nguyên logic cũ của bạn ở dưới đây
+        turns, session_of_turn = [], {} # Hoặc giữ nguyên logic cũ của bạn ở dưới đây
 
         # --- Giữ nguyên phần logic lấy session_keys và xử lý turns ở bên dưới ---
         conv_data = conv.get("conversation", conv)
