@@ -185,6 +185,8 @@ def summarize(records: List[Dict[str, Any]], judge_client=None) -> Dict[str, Any
 def main():
     args = parse_args()
     cfg = DEFAULT_CONFIG
+
+    cfg.llm.model_name = "Qwen/Qwen3-8B"
     ablation = ablation_from_args(args)
 
     logger.info("Loading dataset '%s' from %s", args.dataset, args.data_path)
