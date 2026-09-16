@@ -212,6 +212,7 @@ def main():
     all_memorai_records, all_baseline_records, graph_stats_list = [], [], []
     t0 = time.time()
 
+    # --- THÊM ĐOẠN MỞ FILE RAW NGAY KHI CHẠY ---
     raw_path = args.out.rsplit(".", 1)[0] + "_raw.jsonl"
     os.makedirs(os.path.dirname(raw_path) or ".", exist_ok=True)
     raw_f = open(raw_path, "w", encoding="utf-8")
@@ -224,6 +225,8 @@ def main():
         logger.info("  -> memorai: %d QA answered in %.1fs", len(records), time.time() - conv_t0)
         all_memorai_records.extend(records)
         graph_stats_list.append(gstats)
+
+        # Ghi raw record ngay lập tức
         for r in records:
             raw_f.write(json.dumps({"conv_id": conv["conv_id"], "mode": "memorai", **r},
                                     ensure_ascii=False) + "\n")
@@ -257,6 +260,7 @@ def main():
         },
     }
 
+    # Bọc try/except để tránh crash mất kết quả cuối
     try:
         results["memorai"] = summarize(all_memorai_records, judge_client)
     except Exception as e:  # noqa: BLE001
