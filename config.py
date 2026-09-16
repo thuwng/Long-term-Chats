@@ -14,7 +14,7 @@ class LLMConfig:
     api_base: str = os.environ.get("MEMORAI_LLM_API_BASE", "http://localhost:8000/v1")
     api_key: str = os.environ.get("MEMORAI_LLM_API_KEY", "EMPTY")
     temperature: float = 0.0
-    max_tokens: int = 256       
+    max_tokens: int = 128       
     timeout: int = 120
     retries: int = 3
 
