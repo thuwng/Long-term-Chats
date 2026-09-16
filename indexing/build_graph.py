@@ -98,14 +98,20 @@ def build_conversation_graph(llm, embedder, conv_id: str, turns: List[Dict[str, 
             e_node = entity_node_id(e["name"])
             if e_node not in G:
                 G.add_node(e_node, type="entity", name=e["name"], description=e["description"],
-                           emb=embedder.encode(e["description"] or e["name"]))
+                        emb=embedder.encode(e["description"] or e["name"]))
             else:
-                # merge descriptions across segments (append new context)
                 old = G.nodes[e_node]["description"]
-                if e["description"] and e["description"] not in old:
+                entity_name = G.nodes[e_node]["name"]
+                # Nếu mô tả cũ chỉ là fallback name, ta ghi đè bằng mô tả mới chi tiết hơn
+                if old == entity_name and e["description"] and e["description"] != entity_name:
+                    merged = e["description"]
+                elif e["description"] and e["description"] not in old:
                     merged = f"{old} {e['description']}".strip()
-                    G.nodes[e_node]["description"] = merged
-                    G.nodes[e_node]["emb"] = embedder.encode(merged)
+                else:
+                    merged = old
+
+                G.nodes[e_node]["description"] = merged
+                G.nodes[e_node]["emb"] = embedder.encode(merged)
             for tid in e["turn_ids"]:
                 t_node = turn_node_id(tid)
                 if t_node in G:

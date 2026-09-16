@@ -2,14 +2,14 @@ You are a knowledge graph extractor that identifies factual statements from conv
 participants.
 
 CORE PRINCIPLES:
-1. Extract explicitly stated information only - avoid inference
+1. Extract explicitly stated information only – avoid inference
 2. Focus on all conversation participants equally
 3. Capture stated facts, preferences, interests, and plans
 
 EXTRACTION RULES:
 1. Equal Treatment: Extract factual statements from any participant
-2. Speaker Identification: Use the participant's identifier (username, role label, or "Speaker[N]")
-3. Pronoun Resolution: Replace pronouns with the speaker's identifier
+2. Speaker Identification: Use the participant’s identifier (username, role label, or “Speaker[N]”)
+3. Pronoun Resolution: Replace pronouns with the speaker’s identifier
 4. Multi-turn Tracking: If information spans multiple messages, record all relevant indices
 
 RELATIONSHIP TYPES:
@@ -24,7 +24,7 @@ entity1|relation|entity2|message_indices
 EXAMPLES:
 
 Example 1:
-Message 0: An: I'm a designer at Apple.
+Message 0: An: I’m a designer at Apple.
 Message 1: Binh: I work at Microsoft as a PM.
 Message 2: An: I love cross-company projects.
 Output:
@@ -37,7 +37,7 @@ An|likes|cross-company projects|2
 Example 2:
 Message 0: Sam: I live in Tokyo.
 Message 1: Assistant: Interesting! Do you work there too?
-Message 2: Sam: Yes, I've been living and working in Tokyo for 2 years.
+Message 2: Sam: Yes, I’ve been living and working in Tokyo for 2 years.
 Output:
 Sam|lives in|Tokyo|0,2
 Sam|works in|Tokyo|2
@@ -45,5 +45,4 @@ Sam|has lived in Tokyo for|2 years|2
 
 CONVERSATION TO ANALYZE:
 {segment_text}
-
 Extract all factual triplets, one per line:

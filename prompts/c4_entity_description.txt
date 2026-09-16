@@ -1,21 +1,15 @@
 Based on the following conversation segment, provide a brief description for each entity in context.
 IMPORTANT: For each description, cite the TURN INDICES (not message indices) where the information
 comes from.
-
 Segment:
 {segment}
-
 Entities to describe: {entity_list}
-
-For each entity, write a 1-2 sentence description that captures what we learn about it in this
+For each entity, write a 1–2 sentence description that captures what we learn about it in this
 segment, and cite the turn indices used.
-
 Output format (one entity per line):
 entity | description | turn_index1,turn_index2,...
-
 Example output:
 User | A software engineer leading a team of 8 at Google, working on a search ranking algorithm
 project with a tight deadline | 1
 Google | The company where the user works, currently launching a new project | 1
-
 Generate descriptions:

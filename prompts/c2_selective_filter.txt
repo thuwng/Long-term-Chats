@@ -4,8 +4,8 @@ TASK
 Analyze the conversation and return a JSON array of message indices that contain valuable
 information about the user.
 
-WHAT COUNTS AS "VALUABLE USER INFORMATION"
-Keep only messages that help identify the user's personal context, including:
+WHAT COUNTS AS “VALUABLE USER INFORMATION”
+Keep only messages that help identify the user’s personal context, including:
 1) Personal information
 - Biographical facts: name, age, job, education, location
 - Possessions/ownership, experiences, achievements
@@ -17,14 +17,14 @@ Keep only messages that help identify the user's personal context, including:
 - Questions that reveal their situation
 
 3) Contextual exchanges
-- Questions that clarify the user's specific context
+- Questions that clarify the user’s specific context
 - Personalized suggestions the user requested
 - Responses that explicitly reference details the user mentioned earlier
 
 WHAT TO SKIP
 - Generic knowledge not tied to this user
 - General definitions or instructions applicable to anyone
-- Content with no connection to the user's personal context
+- Content with no connection to the user’s personal context
 
 OUTPUT FORMAT
 Return ONLY a JSON array of message indices to keep. Do not add any text outside the JSON array.
@@ -32,11 +32,11 @@ Return ONLY a JSON array of message indices to keep. Do not add any text outside
 EXAMPLES
 
 Example 1
-[0] user: What's photosynthesis?
+[0] user: What’s photosynthesis?
 [1] assistant: Photosynthesis is the process where plants convert sunlight into energy using
 chlorophyll.
 Output: [0]
-Why keep: Message [0] indicates the user's learning interest/need. Message [1] is generic
+Why keep: Message [0] indicates the user’s learning interest/need. Message [1] is generic
 knowledge and does not add user-specific profile information.
 
 Example 2
@@ -45,11 +45,11 @@ Example 2
 favorite spots.
 Output: [0, 1]
 Why keep: Message [0] contains ownership and a specific personal detail (a cat named Luna) plus a
-concrete problem. Message [1] is personalized to the user's stated context.
+concrete problem. Message [1] is personalized to the user’s stated context.
 
 Example 3
 [0] Tom: Alex, are you moving to Berlin next week?
-[1] Alex: Yeah. I'm moving to Berlin because I got a data engineer job. I'm worried about rent
+[1] Alex: Yeah. I’m moving to Berlin because I got a data engineer job. I’m worried about rent
 because my budget is only around 1,200 EUR/month.
 [2] Tom: Are you going alone or with someone?
 [3] Alex: Alone. I prefer a place near the U-Bahn so commuting is easy.

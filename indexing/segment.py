@@ -59,6 +59,8 @@ def _is_valid_segmentation(segment_indices, n_turns: int) -> bool:
             if not isinstance(i, int) or i in seen:
                 return False
             seen.add(i)
+    if len(seen) != n_turns:
+        return False
     return True
 
 

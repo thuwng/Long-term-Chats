@@ -11,8 +11,8 @@ If the response only contains a subset of the information required by the answer
 {answer}
 [The End of Reference Answer]
 
-[The Start of Model's Response]
+[The Start of Model’s Response]
 {response}
-[The End of Model's Response]
+[The End of Model’s Response]
 
 Is the model response correct? Answer [[yes]] or [[no]] only.

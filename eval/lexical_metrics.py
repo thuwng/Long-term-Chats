@@ -66,23 +66,21 @@ def compute_bertscore(preds: List[str], golds: List[str], lang: str = "en") -> f
 
 
 def evaluate_generation(preds: List[str], golds: List[str]) -> Dict[str, float]:
-    """
-    Aggregate generation metrics over a list of (prediction, reference)
-    pairs, matching the columns of Table 1: F1, BLEU, R-1, R-2, R-L, BERTScore.
-    """
-    f1s, bleus, r1s, r2s, rls = [], [], [], [], []
+    f1s, r1s, r2s, rls = [], [], [], []
     for p, g in zip(preds, golds):
         f1s.append(token_f1(p, g))
-        bleus.append(sentence_bleu(p, g))
         rs = rouge_scores(p, g)
         r1s.append(rs["rouge1"]); r2s.append(rs["rouge2"]); rls.append(rs["rougeL"])
 
-    bert_f1 = compute_bertscore(preds, golds) if preds else float("nan")
+    # Sử dụng Corpus BLEU chuẩn xác hơn cho toàn bộ corpus thay vì trung bình sentence BLEU
+    corpus_bleu_score = sacrebleu.corpus_bleu(preds, [golds]).score
 
+    bert_f1 = compute_bertscore(preds, golds) if preds else float("nan")
     n = max(len(f1s), 1)
+
     return {
         "F1": sum(f1s) / n * 100,
-        "BLEU": sum(bleus) / n,
+        "BLEU": corpus_bleu_score,  # Đã là thang điểm 0-100 từ sacrebleu
         "R-1": sum(r1s) / n,
         "R-2": sum(r2s) / n,
         "R-L": sum(rls) / n,

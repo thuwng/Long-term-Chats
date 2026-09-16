@@ -166,11 +166,21 @@ def load_longmemeval(path: str) -> List[Dict[str, Any]]:
                 })
 
         gold_sessions = row.get("answer_session_ids", [])
+        
+        # Tự động trích xuất các turn_id thuộc các session đáp án để phục vụ Turn-level Evaluation (Bảng 3)
+        gold_turns = []
+        for s_id in gold_sessions:
+            if s_id in session_ids:
+                s_idx = session_ids.index(s_id)
+                session_turns = sessions[s_idx]
+                for t_idx in range(len(session_turns)):
+                    gold_turns.append(f"{s_id}:{t_idx}")
+
         qas = [{
             "question": row.get("question", ""),
             "answer": str(row.get("answer", "")),
             "category": row.get("question_type"),
-            "gold_turn_ids": [],  # LongMemEval ground-truth is session-level
+            "gold_turn_ids": gold_turns,  # Thay vì để trống []
             "gold_session_ids": gold_sessions,
         }]
 

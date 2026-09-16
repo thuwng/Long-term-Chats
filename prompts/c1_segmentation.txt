@@ -25,20 +25,21 @@ SEGMENTATION CRITERIA
 EXAMPLE
 INPUT CONVERSATION:
 Message 0: user: Hey, how are you?
-Message 1: assistant: I'm good, thanks! Just finishing up some work.
+Message 1: assistant: I’m good, thanks! Just finishing up some work.
 Message 2: user: Speaking of work, did you see the email about the project deadline?
-Message 3: assistant: Yeah, it's been moved to next Friday.
-Message 4: user: Okay, that gives us more time. I'll update the project plan.
+Message 3: assistant: Yeah, it’s been moved to next Friday.
+Message 4: user: Okay, that gives us more time. I’ll update the project plan.
 Message 5: assistant: Perfect, thanks.
 Message 6: user: On a different note, are you free this weekend? I was thinking of going hiking.
-Message 7: assistant: Oh, that sounds great! I'm free on Saturday.
+Message 7: assistant: Oh, that sounds great! I’m free on Saturday.
 
 REQUIRED OUTPUT:
+
 [[0,1,2,3,4,5],[6,7]]
-EXPLANATION: Messages 0-5 form one segment discussing work-related topics. Message 6 signals a
+EXPLANATION: Messages 0–5 form one segment discussing work-related topics. Message 6 signals a
 topic shift to weekend plans, forming a new segment with message 7.
 
--
+—
 
 INPUT CONVERSATION
 {numbered_messages_str}
