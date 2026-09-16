@@ -55,14 +55,37 @@ def load_locomo(path: str) -> List[Dict[str, Any]]:
     conversations = []
 
     for conv_idx, conv in enumerate(raw):
+        # [BỔ SUNG] Đảm bảo phần 'conversation' luôn là dict, nếu là chuỗi string thì parse lại
+        if isinstance(conv.get("conversation"), str):
+            try:
+                conv["conversation"] = json.loads(conv["conversation"])
+            except json.JSONDecodeError:
+                pass
+        
+        # Nếu bản thân phần tử conv đọc lên là một dạng bọc chuỗi toàn cục
+        if isinstance(conv, str):
+            try:
+                conv = json.loads(conv)
+            except json.JSONDecodeError:
+                pass
+
         conv_id = conv.get("sample_id", f"locomo_{conv_idx}")
-        turns, session_of_turn = [], {}
+        turns, session_of_turn = {}, {} # Hoặc giữ nguyên logic cũ của bạn ở dưới đây
+
+        # --- Giữ nguyên phần logic lấy session_keys và xử lý turns ở bên dưới ---
+        conv_data = conv.get("conversation", conv)
+        if isinstance(conv_data, str):
+            try:
+                conv_data = json.loads(conv_data)
+            except:
+                conv_data = conv
 
         session_keys = sorted(
-            [k for k in conv.get("conversation", conv).keys() if k.startswith("session_")
+            [k for k in conv_data.keys() if k.startswith("session_")
              and not k.endswith("date_time")],
             key=lambda k: int(k.split("_")[1]),
         )
+        
         conv_data = conv.get("conversation", conv)
         for sess_key in session_keys:
             sess_num = sess_key.split("_")[1]
