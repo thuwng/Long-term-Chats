@@ -9,12 +9,12 @@ from dataclasses import dataclass, field
 
 @dataclass
 class LLMConfig:
-    # Backbone LLM used uniformly for all modules (paper: openai/gpt-oss-20b, temp=0)
-    model_name: str = os.environ.get("MEMORAI_LLM_MODEL", "openai/gpt-oss-20b")
+    # Đã đổi sang Qwen/Qwen3-8B và giảm max_tokens để không bị vượt quá giới hạn 8192 context của T4
+    model_name: str = os.environ.get("MEMORAI_LLM_MODEL", "Qwen/Qwen3-8B")
     api_base: str = os.environ.get("MEMORAI_LLM_API_BASE", "http://localhost:8000/v1")
     api_key: str = os.environ.get("MEMORAI_LLM_API_KEY", "EMPTY")
     temperature: float = 0.0
-    max_tokens: int = 1024
+    max_tokens: int = 512       
     timeout: int = 120
     retries: int = 3
 
