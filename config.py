@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 
 @dataclass
 class LLMConfig:
+    model_name: str = os.environ.get("MEMORAI_LLM_MODEL", "Qwen/Qwen3-8B")  
     api_base: str = os.environ.get("MEMORAI_LLM_API_BASE", "http://localhost:8000/v1")
     api_key: str = os.environ.get("MEMORAI_LLM_API_KEY", "EMPTY")
     temperature: float = 0.0
