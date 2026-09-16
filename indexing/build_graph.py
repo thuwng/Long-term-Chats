@@ -54,6 +54,7 @@ def build_conversation_graph(llm, embedder, conv_id: str, turns: List[Dict[str, 
         segments = segment_conversation(llm, turns)
     else:
         segments = no_segmentation_baseline(turns)
+    logger.info("    [seg] %d turns -> %d segments", len(turns), len(segments))
 
     for seg_idx, segment_turns in enumerate(segments):
         seg_node = segment_node_id(conv_id, seg_idx)
@@ -63,7 +64,9 @@ def build_conversation_graph(llm, embedder, conv_id: str, turns: List[Dict[str, 
             filtered = selective_filter(llm, segment_turns)
         else:
             filtered = no_selective_filter_baseline(segment_turns)
-
+        logger.info("    [seg %d/%d] %d turns -> %d kept after filtering",
+                    seg_idx + 1, len(segments), len(segment_turns), len(filtered))
+        
         # ---- Phase 1.3: segment summary (always over the FULL segment) ----
         summary = summarize_segment(llm, segment_turns)
         G.add_node(seg_node, type="segment", summary=summary, conv_id=conv_id,
@@ -93,6 +96,9 @@ def build_conversation_graph(llm, embedder, conv_id: str, turns: List[Dict[str, 
         entities, n_err2 = extract_entity_descriptions(llm, filtered, entity_names)
         stats["structured_output_errors"] += n_err2
         stats["structured_output_total"] += n_err2 + len(entities)
+        logger.info("    [seg %d/%d] %d triplets (%d parse errors), %d entities (%d parse errors)",
+                    seg_idx + 1, len(segments), len(triplets), n_err, len(entities), n_err2)
+
 
         for e in entities:
             e_node = entity_node_id(e["name"])

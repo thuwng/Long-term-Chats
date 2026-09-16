@@ -3,7 +3,7 @@ Generation evaluation metrics matching Table 1: token-level F1, BLEU,
 ROUGE-1/2/L, and BERTScore. Uses `rouge-score`, `sacrebleu`, and
 `bert-score` (see requirements.txt).
 """
-import re
+import os, re, logging
 from typing import List, Dict
 
 import sacrebleu
@@ -54,15 +54,25 @@ def rouge_scores(pred: str, gold: str) -> Dict[str, float]:
     }
 
 
-def compute_bertscore(preds: List[str], golds: List[str], lang: str = "en") -> float:
+def compute_bertscore(preds: List[str], golds: List[str], lang: str = "en",
+                    device: str = None) -> float:
     """Batched BERTScore (F1), returns the corpus-level average * 100.
 
     Imports `bert_score` lazily (it pulls in torch/transformers) so that
     modules/tests only needing token_f1/BLEU/ROUGE don't pay that cost.
     """
+    logger = logging.getLogger(__name__)
+    if device is None:
+        device = os.environ.get("MEMORAI_BERTSCORE_DEVICE", "cpu")
+
     from bert_score import score as bertscore_score
-    P, R, F1 = bertscore_score(preds, golds, lang=lang, verbose=False)
-    return float(F1.mean()) * 100
+    try:
+        P, R, F1 = bertscore_score(preds, golds, lang=lang, verbose=False, device=device)
+        return float(F1.mean()) * 100
+    except Exception as e:  # noqa: BLE001
+        logger.warning("BERTScore failed (device=%s): %s. Returning NaN instead of crashing.",
+                        device, e)
+        return float("nan")
 
 
 def evaluate_generation(preds: List[str], golds: List[str]) -> Dict[str, float]:

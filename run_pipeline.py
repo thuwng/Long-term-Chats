@@ -21,11 +21,12 @@ GPT-4o judge (costs real API calls, off by default):
 """
 import argparse
 import logging
-import time
+import time, json, os
 from typing import List, Dict, Any
 
 import numpy as np
 
+from tqdm import tqdm
 from config import DEFAULT_CONFIG, AblationConfig
 from data.loaders import load_dataset
 from llm_client import LLMClient, JudgeClient
@@ -80,11 +81,19 @@ def map_turns_to_sessions(turns: List[Dict[str, Any]]) -> Dict[str, str]:
 
 def run_memorai_on_conversation(llm, embedder, cfg, ablation, conv):
     """Builds the graph once, then answers every QA pair for this conversation."""
+    logger.info("  [graph] building knowledge graph for %s (%d raw turns)...",
+                conv["conv_id"], len(conv["turns"]))
+    t0 = time.time()
     G = build_conversation_graph(llm, embedder, conv["conv_id"], conv["turns"], ablation)
+    logger.info("  [graph] done in %.1fs -> %d nodes / %d edges (structured errors: %d/%d)",
+                time.time() - t0, G.number_of_nodes(), G.number_of_edges(),
+                G.graph["stats"]["structured_output_errors"],
+                max(G.graph["stats"]["structured_output_total"], 1))
     turn_to_session = map_turns_to_sessions(conv["turns"])
 
     records = []
-    for qa in conv["qas"]:
+    qa_iter = tqdm(conv["qas"], desc=f"  [qa] {conv['conv_id']}", leave=False)
+    for qa_idx, qa in enumerate(qa_iter):
         q_emb = embedder.encode(qa["question"])
 
         if ablation.use_subgraph_retrieval:
@@ -203,18 +212,37 @@ def main():
     all_memorai_records, all_baseline_records, graph_stats_list = [], [], []
     t0 = time.time()
 
-    for conv in conversations:
-        logger.info("Processing conversation %s (%d QAs)", conv["conv_id"], len(conv["qas"]))
+    raw_path = args.out.rsplit(".", 1)[0] + "_raw.jsonl"
+    os.makedirs(os.path.dirname(raw_path) or ".", exist_ok=True)
+    raw_f = open(raw_path, "w", encoding="utf-8")
+
+    conv_iter = tqdm(conversations, desc="[conversations]")
+    for conv in conv_iter:
+        logger.info("=== Processing conversation %s (%d QAs) ===", conv["conv_id"], len(conv["qas"]))
+        conv_t0 = time.time()
         records, gstats = run_memorai_on_conversation(llm, embedder, cfg, ablation, conv)
+        logger.info("  -> memorai: %d QA answered in %.1fs", len(records), time.time() - conv_t0)
         all_memorai_records.extend(records)
         graph_stats_list.append(gstats)
+        for r in records:
+            raw_f.write(json.dumps({"conv_id": conv["conv_id"], "mode": "memorai", **r},
+                                    ensure_ascii=False) + "\n")
+        raw_f.flush()
 
         if args.run_baseline:
-            all_baseline_records.extend(
-                run_dense_baseline_on_conversation(embedder, llm, cfg, conv)
-            )
+            base_t0 = time.time()
+            baseline_records = run_dense_baseline_on_conversation(embedder, llm, cfg, conv)
+            logger.info("  -> baseline: %d QA answered in %.1fs", len(baseline_records), time.time() - base_t0)
+            all_baseline_records.extend(baseline_records)
+            for r in baseline_records:
+                raw_f.write(json.dumps({"conv_id": conv["conv_id"], "mode": "baseline", **r},
+                                        ensure_ascii=False) + "\n")
+            raw_f.flush()
 
-    logger.info("Done in %.1fs", time.time() - t0)
+    raw_f.close()
+    logger.info("Đã lưu %d raw records (memorai) + %d (baseline) vào %s",
+                len(all_memorai_records), len(all_baseline_records), raw_path)
+    logger.info("Sinh câu trả lời xong toàn bộ trong %.1fs. Đang tính metric tổng hợp...", time.time() - t0)
 
     results = {
         "config": {
@@ -227,13 +255,23 @@ def main():
             "avg_nodes": float(np.mean([g["n_nodes"] for g in graph_stats_list])),
             "avg_edges": float(np.mean([g["n_edges"] for g in graph_stats_list])),
         },
-        "memorai": summarize(all_memorai_records, judge_client),
     }
+
+    try:
+        results["memorai"] = summarize(all_memorai_records, judge_client)
+    except Exception as e:  # noqa: BLE001
+        logger.error("Lỗi khi tính metric cho memorai: %s. Xem raw records tại %s", e, raw_path)
+        results["memorai"] = {"error": str(e)}
+
     if args.run_baseline:
-        results["dense_baseline"] = summarize(all_baseline_records, judge_client)
+        try:
+            results["dense_baseline"] = summarize(all_baseline_records, judge_client)
+        except Exception as e:  # noqa: BLE001
+            logger.error("Lỗi khi tính metric cho baseline: %s. Xem raw records tại %s", e, raw_path)
+            results["dense_baseline"] = {"error": str(e)}
 
     save_json(results, args.out)
-    logger.info("Saved results to %s", args.out)
+    logger.info("Saved results to %s (raw per-QA records: %s)", args.out, raw_path)
     print_summary(results)
 
 
