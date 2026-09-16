@@ -1,0 +1,11 @@
+Summarize the following conversation segment into a concise summary (2-3 sentences).
+
+Focus on:
+- Main topic discussed
+- Key information exchanged
+- Important facts or decisions
+
+Segment:
+{segment_content}
+
+Summary:

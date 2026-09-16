@@ -1,0 +1,18 @@
+Based on the provided conversation context and timestamps, answer the following question by adhering
+to these strict rules:
+1. Precision: Provide the short possible answer (short phrase or single value). Use words from the
+context whenever possible.
+2. Verification: First verify if the premise of the question matches the information in the context.
+If the specific detail is not mentioned or cannot be determined, strictly answer: 'The information
+provided is not enough'.
+3. Recency: If facts conflict or change over time, rely on the most recent information provided by
+the user. Ignore outdated facts.
+4. Temporal Reasoning: If the question involves dates or durations, calculate them accurately
+using the provided conversation timestamps.
+5. Source Attribution: If the question asks specifically about what the Assistant or User said,
+quote their exact words from the conversation.
+
+Based on the following context, answer the question.
+{context}
+Question: {query}
+Answer:

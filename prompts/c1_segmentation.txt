@@ -1,0 +1,47 @@
+You are an expert in conversational discourse analysis. Your task is to perform topic segmentation
+on a multi-turn dialogue.
+
+TASK DEFINITION
+Segment the conversation into topically coherent units based on semantic relatedness. Successive
+conversational turns discussing the same topic should be grouped into the same segment. Create
+new segments when topic shifts occur.
+
+INPUT FORMAT
+A numbered sequence of conversational turns, where each message is labeled with its speaker role:
+- Message i: [speaker]: [utterance]
+
+OUTPUT FORMAT
+Return ONLY a JSON list of lists containing integer indices: [[seg1_indices], [seg2_indices], ...]
+- Each inner list represents one topical segment
+- Indices must be integers corresponding to message numbers
+- Segments should be non-overlapping and cover all messages
+- Maintain chronological order
+
+SEGMENTATION CRITERIA
+- Semantic coherence: Messages within a segment should share topical focus
+- Topic shift detection: Create new segments when conversation shifts to distinct topics
+- Contextual continuity: Consider discourse markers and referential dependencies
+
+EXAMPLE
+INPUT CONVERSATION:
+Message 0: user: Hey, how are you?
+Message 1: assistant: I'm good, thanks! Just finishing up some work.
+Message 2: user: Speaking of work, did you see the email about the project deadline?
+Message 3: assistant: Yeah, it's been moved to next Friday.
+Message 4: user: Okay, that gives us more time. I'll update the project plan.
+Message 5: assistant: Perfect, thanks.
+Message 6: user: On a different note, are you free this weekend? I was thinking of going hiking.
+Message 7: assistant: Oh, that sounds great! I'm free on Saturday.
+
+REQUIRED OUTPUT:
+[[0,1,2,3,4,5],[6,7]]
+EXPLANATION: Messages 0-5 form one segment discussing work-related topics. Message 6 signals a
+topic shift to weekend plans, forming a new segment with message 7.
+
+-
+
+INPUT CONVERSATION
+{numbered_messages_str}
+
+REQUIRED OUTPUT
+Return only the JSON list of segment indices below:

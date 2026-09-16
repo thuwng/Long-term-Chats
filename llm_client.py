@@ -1,0 +1,69 @@
+"""
+Thin wrapper around an OpenAI-compatible chat completion endpoint.
+
+The paper runs `openai/gpt-oss-20b` locally (e.g. served via vLLM or
+Ollama with an OpenAI-compatible API) for ALL LLM-dependent modules:
+segmentation, filtering, summarization, triplet/entity extraction,
+and final answer generation. Point `api_base` at your local server.
+
+GPT-4o-as-judge (Appendix C.7) uses the real OpenAI API instead.
+"""
+import time
+import logging
+from typing import Optional
+
+from openai import OpenAI
+
+from config import LLMConfig, JudgeConfig
+
+logger = logging.getLogger(__name__)
+
+
+class LLMClient:
+    """Generic chat-completion client with retries, used for backbone LLM calls."""
+
+    def __init__(self, cfg: LLMConfig):
+        self.cfg = cfg
+        self.client = OpenAI(base_url=cfg.api_base, api_key=cfg.api_key)
+
+    def generate(self, prompt: str, system: Optional[str] = None,
+                 max_tokens: Optional[int] = None, temperature: Optional[float] = None) -> str:
+        messages = []
+        if system:
+            messages.append({"role": "system", "content": system})
+        messages.append({"role": "user", "content": prompt})
+
+        last_err = None
+        for attempt in range(self.cfg.retries):
+            try:
+                resp = self.client.chat.completions.create(
+                    model=self.cfg.model_name,
+                    messages=messages,
+                    temperature=temperature if temperature is not None else self.cfg.temperature,
+                    max_tokens=max_tokens or self.cfg.max_tokens,
+                    timeout=self.cfg.timeout,
+                )
+                return resp.choices[0].message.content or ""
+            except Exception as e:  # noqa: BLE001
+                last_err = e
+                logger.warning("LLM call failed (attempt %d/%d): %s",
+                               attempt + 1, self.cfg.retries, e)
+                time.sleep(1.5 * (attempt + 1))
+        raise RuntimeError(f"LLM generation failed after {self.cfg.retries} attempts: {last_err}")
+
+
+class JudgeClient:
+    """GPT-4o judge client (Appendix C.7), separate from the backbone LLM."""
+
+    def __init__(self, cfg: JudgeConfig):
+        self.cfg = cfg
+        self.client = OpenAI(api_key=cfg.api_key)
+
+    def generate(self, prompt: str) -> str:
+        resp = self.client.chat.completions.create(
+            model=self.cfg.model_name,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=self.cfg.temperature,
+            max_tokens=self.cfg.max_tokens,
+        )
+        return resp.choices[0].message.content or ""
