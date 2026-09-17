@@ -20,11 +20,6 @@ def _format_numbered_messages(turns: List[Dict[str, Any]]) -> str:
 
 
 def segment_conversation(llm, turns: List[Dict[str, Any]]) -> List[List[Dict[str, Any]]]:
-    """
-    Returns a list of segments, each a list of turn dicts (in original order).
-    Falls back to a single segment containing everything if the LLM output
-    is malformed or fails validation, so downstream phases never crash.
-    """
     if not turns:
         return []
 
@@ -32,26 +27,19 @@ def segment_conversation(llm, turns: List[Dict[str, Any]]) -> List[List[Dict[str
     numbered = _format_numbered_messages(turns)
     prompt = prompt_template.format(numbered_messages_str=numbered)
 
-    # The output must enumerate EVERY message index at least once (nested
-    # JSON list of lists). With a fixed small max_tokens this gets truncated
-    # on long conversations, which then silently falls back to "one giant
-    # segment" below and cascades into a badly-diluted retrieval subgraph.
-    cap = getattr(getattr(llm, "cfg", None), "max_tokens_segmentation_cap", 8000)
-    max_tokens = scaled_max_tokens(len(turns), per_item=4, base=300, cap=cap)
+    # Đặt một mức trần cứng và an toàn hơn cho max_tokens đầu ra của segmentation
+    # Không để scale quá lớn theo số lượng turns để tránh vượt quá vLLM max-model-len
+    cap = getattr(getattr(llm, "cfg", None), "max_tokens_segmentation_cap", 1024)
+    max_tokens = min(scaled_max_tokens(len(turns), per_item=2, base=200, cap=cap), 1024)
+    
     raw_output = llm.generate(prompt, max_tokens=max_tokens)
     segment_indices = safe_json_loads(raw_output, default=None)
 
     if not _is_valid_segmentation(segment_indices, len(turns)):
-        # Fallback: single segment with all turns (== "w/o Topic Seg" ablation
-        # behavior is actually intentionally disabled via ablation flag,
-        # this fallback only triggers on genuine parse failure). Log loudly:
-        # if this fires often, check MEMORAI_MAX_TOKENS_SEG_CAP / conversation
-        # length, since it defeats query-focused subgraph retrieval entirely.
         import logging
         logging.getLogger(__name__).warning(
             "Segmentation parse failed for %d turns (max_tokens=%d) -> "
-            "falling back to a single segment. This will bloat the "
-            "retrieval subgraph; consider chunking the conversation.",
+            "falling back to a single segment.",
             len(turns), max_tokens,
         )
         return [turns]

@@ -28,7 +28,7 @@ class LLMConfig:
     # Hard ceilings for the length-scaled overrides used by the indexing
     # modules, so a pathologically long segment can't request an absurd
     # number of output tokens (cost/latency guard).
-    max_tokens_segmentation_cap: int = int(os.environ.get("MEMORAI_MAX_TOKENS_SEG_CAP", "1536"))
+    max_tokens_segmentation_cap: int = int(os.environ.get("MEMORAI_MAX_TOKENS_SEG_CAP", "1024"))
     max_tokens_filter_cap: int = int(os.environ.get("MEMORAI_MAX_TOKENS_FILTER_CAP", "1024"))
     max_tokens_extraction_cap: int = int(os.environ.get("MEMORAI_MAX_TOKENS_EXTRACT_CAP", "1024"))
 
