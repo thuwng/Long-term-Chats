@@ -14,10 +14,8 @@ def select_top_turns(Gq: nx.MultiDiGraph, pr_scores: Dict[str, float], m: int = 
     turn_nodes = [n for n in Gq.nodes if Gq.nodes[n].get("type") == "turn"]
     turn_nodes.sort(key=lambda n: pr_scores.get(n, 0.0), reverse=True)
     top_m = turn_nodes[:m]
-    print(f"🎯 [Retrieval] Đã chọn Top-{m} turns quan trọng nhất dựa trên DW-PR score:")
     for n in top_m:
         data = Gq.nodes[n]
-        print(f"   - Turn [{data.get('turn_id')} | Speaker: {data.get('speaker')}]: {data.get('text')[:80]}...")
     return top_m
 
 
@@ -41,7 +39,6 @@ def enrich_with_triplets(Gq: nx.MultiDiGraph, top_turn_nodes: List[str]
                 seen.add(key)
                 triplets.append(key)
                 
-    print(f"🔗 [Retrieval] Triplet Enrichment tìm thấy {len(triplets)} supportive facts gắn với các turns trên.")
     return triplets
 
 
@@ -67,5 +64,4 @@ def format_context(Gq: nx.MultiDiGraph, top_turn_nodes: List[str],
             lines.append(f"- ({h}, {r}, {t})")
 
     context_str = "\n".join(lines)
-    print(f"📦 [Generation Context] Đã chuẩn bị xong Context (độ dài ~{len(context_str)} ký tự) để gửi cho Generator.")
     return context_str

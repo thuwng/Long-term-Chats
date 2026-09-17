@@ -305,14 +305,14 @@ def main():
     try:
         results["memorai"] = summarize(all_memorai_records, judge_client)
     except Exception as e:  # noqa: BLE001
-        logger.error("Lỗi khi tính metric cho memorai: %s. Xem raw records tại %s", e, raw_path)
+        print(f"⚠️ Lỗi khi tính metric cho memorai: {e}. Xem raw records tại {raw_path}")
         results["memorai"] = {"error": str(e)}
 
     if args.run_baseline:
         try:
             results["dense_baseline"] = summarize(all_baseline_records, judge_client)
         except Exception as e:  # noqa: BLE001
-            logger.error("Lỗi khi tính metric cho baseline: %s. Xem raw records tại %s", e, raw_path)
+            print(f"⚠️ Lỗi khi tính metric cho baseline: {e}. Xem raw records tại {raw_path}")
             results["dense_baseline"] = {"error": str(e)}
 
     save_json(results, args.out)
