@@ -44,90 +44,57 @@ def _read_jsonl(path: str):
 
 
 def load_locomo(path: str) -> List[Dict[str, Any]]:
-    """
-    Parses the backup LOCOMO release format where each row in the JSON is a QA instance
-    containing conversation sessions and specific question/answer/evidence fields.
-    """
     raw = _read_json(path)
-    
-    # Gom nhóm các QA theo conv_id vì một hội thoại có thể có nhiều câu hỏi
-    conv_map = {}
+    conversations = []
 
     for row_idx, row in enumerate(raw):
-        # 1. Parse trường 'conversation' nếu nó đang là chuỗi string JSON
+        conv_id = row.get("sample_id", f"locomo_{row_idx}")
+        
+        # 1. Trích xuất các turns từ hội thoại (conversation -> session_X)
         conv_data = row.get("conversation", {})
         if isinstance(conv_data, str):
-            try:
-                conv_data = json.loads(conv_data)
-            except json.JSONDecodeError:
-                conv_data = {}
+            try: conv_data = json.loads(conv_data)
+            except: conv_data = {}
 
-        conv_id = row.get("conv_id", f"locomo_{row_idx}")
-        
-        if conv_id not in conv_map:
-            turns = []
-            session_of_turn = {}
+        turns = []
+        session_keys = [k for k in conv_data.keys() if k.startswith("session_") and not k.endswith("date_time")]
+        for sess_key in session_keys:
+            sess_num = sess_key.split("_")[1]
+            date = conv_data.get(f"{sess_key}_date_time")
+            sess_turns = conv_data.get(sess_key, [])
+            for turn_idx, turn in enumerate(sess_turns):
+                turn_id = turn.get("dia_id", f"D{sess_num}:{turn_idx}")
+                turns.append({
+                    "turn_id": turn_id,
+                    "speaker": turn.get("speaker", "unknown"),
+                    "text": turn.get("text", ""),
+                    "date": date,
+                    "session_id": f"session_{sess_num}",
+                })
+
+        # 2. Trích xuất QAs và map chuẩn các trường answer, gold_turn_ids
+        qas = []
+        raw_qas = row.get("qa", [])
+        for qa in raw_qas:
+            evidence = qa.get("evidence", [])
+            # Chuẩn hóa evidence nếu nó là chuỗi gộp phân tách bằng dấu chấm phẩy
+            if isinstance(evidence, str):
+                evidence = [e.strip() for e in evidence.split(";") if e.strip()]
             
-            # Tìm tất cả các session bắt đầu bằng session_
-            session_keys = sorted(
-                [k for k in conv_data.keys() if k.startswith("session_") and not k.endswith("date_time")],
-                key=lambda k: int(k.split("_")[1]) if k.split("_")[1].isdigit() else 0,
-            )
+            gold_sessions = sorted({e.split(":")[0] for e in evidence if ":" in e})
+            
+            qas.append({
+                "question": qa.get("question", ""),
+                "answer": str(qa.get("answer", "")),
+                "category": qa.get("category"),
+                "gold_turn_ids": evidence,
+                "gold_session_ids": gold_sessions,
+            })
 
-            for sess_key in session_keys:
-                sess_num = sess_key.split("_")[1]
-                date_key = f"{sess_key}_date_time"
-                date = conv_data.get(date_key)
-                
-                # Duyệt qua các turn trong session
-                sess_turns = conv_data.get(sess_key, [])
-                if isinstance(sess_turns, list):
-                    for turn_idx, turn in enumerate(sess_turns):
-                        # Lấy turn_id chuẩn (ưu tiên dia_id nếu có, không thì tự sinh D{sess_num}:{turn_idx})
-                        turn_id = turn.get("dia_id", f"D{sess_num}:{turn_idx}")
-                        turns.append({
-                            "turn_id": turn_id,
-                            "speaker": turn.get("speaker", "unknown"),
-                            "text": turn.get("text", turn.get("clean_text", "")),
-                            "date": date,
-                            "session_id": f"session_{sess_num}",
-                        })
-                        session_of_turn[turn_id] = f"session_{sess_num}"
-
-            conv_map[conv_id] = {
-                "conv_id": conv_id,
-                "turns": turns,
-                "session_of_turn": session_of_turn,
-                "qas": []
-            }
-
-        # 2. Trích xuất thông tin QA từ row hiện tại
-        session_of_turn = conv_map[conv_id]["session_of_turn"]
-        evidence = row.get("evidence", [])
-        if isinstance(evidence, str):
-            try:
-                evidence = json.loads(evidence)
-            except json.JSONDecodeError:
-                evidence = []
-
-        gold_sessions = sorted({session_of_turn.get(e, e.split(":")[0] if ":" in e else "session_1") for e in evidence})
-        
-        qa_item = {
-            "question": row.get("question", ""),
-            "answer": str(row.get("answer", "")),
-            "category": row.get("category"),
-            "gold_turn_ids": evidence,
-            "gold_session_ids": gold_sessions,
-        }
-        conv_map[conv_id]["qas"].append(qa_item)
-
-    # Loại bỏ trường phụ và trả về danh sách conversation chuẩn
-    conversations = []
-    for c_id, c_val in conv_map.items():
         conversations.append({
-            "conv_id": c_id,
-            "turns": c_val["turns"],
-            "qas": c_val["qas"]
+            "conv_id": conv_id,
+            "turns": turns,
+            "qas": qas
         })
 
     return conversations
