@@ -51,8 +51,17 @@ def get_seed_subgraph(G: nx.MultiDiGraph, q_emb: np.ndarray, k: int = 3) -> nx.M
         seed_nodes.add(u)
         seed_nodes.add(v)
 
+    # --- BỔ SUNG LOG IN SEED NODES RA MÀN HÌNH ---
+    print(f"\n🌱 [Seeding] Tìm thấy Top-{k} seed nodes cho câu hỏi:")
+    print(f"   - Segment Seeds ({len(seed_segments)}): {seed_segments}")
+    print(f"   - Entity Seeds ({len(seed_entities)}):")
+    for es in seed_entities:
+        e_data = G.nodes[es]
+        print(f"     + [{es}] Name: {e_data.get('name')} | Desc: {e_data.get('description', '')[:60]}...")
+    print(f"   - Relation Edge Seeds ({len(seed_relation_edges)} edges)")
+
     if not seed_nodes:
-        # No seeds found (e.g. empty graph / cold start) -> empty subgraph.
+        print("⚠️ [Seeding] Không tìm thấy seed node nào phù hợp (Graph trống hoặc cold start)!")
         return nx.MultiDiGraph()
 
     expanded = set(seed_nodes)
@@ -62,6 +71,11 @@ def get_seed_subgraph(G: nx.MultiDiGraph, q_emb: np.ndarray, k: int = 3) -> nx.M
 
     Gq = G.subgraph(expanded).copy()
     Gq.graph["seed_nodes"] = seed_nodes
+    
+    print(f"🌲 [Subgraph Expansion] Mở rộng 1-hop thành công:")
+    print(f"   -> Số lượng seed gốc: {len(seed_nodes)} nodes")
+    print(f"   -> Subgraph Gq sau mở rộng: {Gq.number_of_nodes()} nodes | {Gq.number_of_edges()} edges")
+    
     return Gq
 
 
@@ -69,4 +83,5 @@ def get_full_graph_as_subgraph(G: nx.MultiDiGraph) -> nx.MultiDiGraph:
     """Ablation: 'Full Graph' - skip subgraph retrieval, rank over the entire graph."""
     Gq = G.copy()
     Gq.graph["seed_nodes"] = set(G.nodes())
+    print(f"🌐 [Ablation Full Graph] Bỏ qua subgraph rút gọn. Sử dụng toàn bộ đồ thị: {Gq.number_of_nodes()} nodes.")
     return Gq

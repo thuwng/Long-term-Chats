@@ -49,30 +49,39 @@ def build_conversation_graph(llm, embedder, conv_id: str, turns: List[Dict[str, 
     G = nx.MultiDiGraph()
     stats = {"structured_output_errors": 0, "structured_output_total": 0}
 
+    print(f"\n==========================================")
+    print(f"🚀 [Graph Build] Bắt đầu xây dựng graph cho: {conv_id} ({len(turns)} turns tổng cộng)")
+    print(f"==========================================")
+
     # ---- Phase 1.1: segmentation ----
     if ablation.use_topic_segmentation:
         segments = segment_conversation(llm, turns)
     else:
         segments = no_segmentation_baseline(turns)
+    print(f"🧩 [Phase 1.1] Chia thành công thành {len(segments)} topical segments.")
     logger.info("    [seg] %d turns -> %d segments", len(turns), len(segments))
 
     for seg_idx, segment_turns in enumerate(segments):
         seg_node = segment_node_id(conv_id, seg_idx)
+        print(f"\n  --- Đang xử lý Segment {seg_idx + 1}/{len(segments)} (chứa {len(segment_turns)} turns) ---")
 
         # ---- Phase 1.2: selective filtering ----
         if ablation.use_selective_filtering:
             filtered = selective_filter(llm, segment_turns)
         else:
             filtered = no_selective_filter_baseline(segment_turns)
+        print(f"  🔍 [Phase 1.2] Lọc ngữ nghĩa: Giữ lại {len(filtered)}/{len(segment_turns)} turns quan trọng.")
         logger.info("    [seg %d/%d] %d turns -> %d kept after filtering",
                     seg_idx + 1, len(segments), len(segment_turns), len(filtered))
         
         # ---- Phase 1.3: segment summary (always over the FULL segment) ----
         summary = summarize_segment(llm, segment_turns)
+        print(f"  📝 [Phase 1.3] Đã tạo tóm tắt segment (Global Context Anchor).")
         G.add_node(seg_node, type="segment", summary=summary, conv_id=conv_id,
                    segment_idx=seg_idx, emb=embedder.encode(summary or " "))
 
         if not filtered:
+            print(f"  ⚠️ Segment này trống sau khi lọc, bỏ qua trích xuất thực thể.")
             continue
 
         # turn nodes + turn-segment edges
@@ -89,6 +98,7 @@ def build_conversation_graph(llm, embedder, conv_id: str, turns: List[Dict[str, 
         triplets, n_err = extract_triplets(llm, filtered)
         stats["structured_output_errors"] += n_err
         stats["structured_output_total"] += n_err + len(triplets)
+        print(f"  🔗 [Phase 2] Trích xuất Triplets: {len(triplets)} quan hệ (Lỗi parse: {n_err})")
 
         entity_names = collect_entity_names(triplets)
 
@@ -96,9 +106,9 @@ def build_conversation_graph(llm, embedder, conv_id: str, turns: List[Dict[str, 
         entities, n_err2 = extract_entity_descriptions(llm, filtered, entity_names)
         stats["structured_output_errors"] += n_err2
         stats["structured_output_total"] += n_err2 + len(entities)
+        print(f"  👤 [Phase 2] Trích xuất Entities: {len(entities)} thực thể (Lỗi parse: {n_err2})")
         logger.info("    [seg %d/%d] %d triplets (%d parse errors), %d entities (%d parse errors)",
                     seg_idx + 1, len(segments), len(triplets), n_err, len(entities), n_err2)
-
 
         for e in entities:
             e_node = entity_node_id(e["name"])
@@ -108,7 +118,6 @@ def build_conversation_graph(llm, embedder, conv_id: str, turns: List[Dict[str, 
             else:
                 old = G.nodes[e_node]["description"]
                 entity_name = G.nodes[e_node]["name"]
-                # Nếu mô tả cũ chỉ là fallback name, ta ghi đè bằng mô tả mới chi tiết hơn
                 if old == entity_name and e["description"] and e["description"] != entity_name:
                     merged = e["description"]
                 elif e["description"] and e["description"] not in old:
@@ -131,15 +140,6 @@ def build_conversation_graph(llm, embedder, conv_id: str, turns: List[Dict[str, 
                     G.add_node(node_id, type="entity", name=name, description=name,
                                emb=embedder.encode(name))
 
-            # Merge with an existing identical (head, relation, tail) edge
-            # instead of always inserting a new parallel edge. The same
-            # relational fact frequently gets re-extracted across many
-            # segments of a long multi-session conversation (e.g. "Alex
-            # works_at XYZ" mentioned in session 1 and again in session 15);
-            # without merging, this bloats edge count (avg edges/node was
-            # observed ~20x higher than the paper's Figure 3) and fragments
-            # provenance across many small edges instead of one edge with a
-            # complete source_turns list.
             merged = False
             existing_edges = G.get_edge_data(h_node, t_node_ent) or {}
             for _key, edata in existing_edges.items():
@@ -152,6 +152,8 @@ def build_conversation_graph(llm, embedder, conv_id: str, turns: List[Dict[str, 
                            source_turns=tr["source_turns"], emb=embedder.encode(tr["relation"]))
 
     G.graph["stats"] = stats
+    print(f"\n✅ [Graph Build Complete] Đồ thị hoàn tất cho {conv_id}!")
+    print(f"   📊 Tổng số Nodes: {G.number_of_nodes()} | Tổng số Edges: {G.number_of_edges()}")
     return G
 
 

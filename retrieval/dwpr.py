@@ -59,7 +59,11 @@ def dynamic_weighted_pagerank(Gq: nx.MultiDiGraph, q_emb: np.ndarray,
     """
     nodes = list(Gq.nodes())
     if not nodes:
+        print("⚠️ [DW-PR] Subgraph rỗng (0 nodes), không thể chạy PageRank.")
         return {}
+    
+    print(f"🌐 [DW-PR] Chạy PageRank trên Subgraph gồm {len(nodes)} nodes và {Gq.number_of_edges()} edges (Uniform={uniform})...")
+    
     idx = {n: i for i, n in enumerate(nodes)}
     n = len(nodes)
 
@@ -84,4 +88,6 @@ def dynamic_weighted_pagerank(Gq: nx.MultiDiGraph, q_emb: np.ndarray,
             break
         pr = new_pr
 
-    return {nodes[i]: float(pr[i]) for i in range(n)}
+    scores = {nodes[i]: float(pr[i]) for i in range(n)}
+    print(f"✨ [DW-PR] Hội tụ xong! Điểm số PageRank cao nhất thuộc về node: {max(scores, key=scores.get)}")
+    return scores
