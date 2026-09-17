@@ -64,7 +64,7 @@ def compute_bertscore(preds: List[str], golds: List[str], lang: str = "en",
         import os
         
         # Đổi đường dẫn này khớp với tên thư mục dataset bạn vừa Add vào Kaggle
-        local_model_path = "/kaggle/input/roberta-large-hf" 
+        local_model_path = "/kaggle/input/models/thuwng/roberta-large/pytorch/default/1" 
         
         if not os.path.exists(local_model_path):
             logger.warning(f"Không tìm thấy model offline tại {local_model_path}")
