@@ -288,6 +288,13 @@ def main():
                 len(all_memorai_records), len(all_baseline_records), raw_path)
     logger.info("Sinh câu trả lời xong toàn bộ trong %.1fs. Đang tính metric tổng hợp...", time.time() - t0)
 
+    # 1. GIẢI PHÓNG VRAM GPU Ở ĐÂY ĐỂ TRÁNH OOM KHI TÍNH BERTSCORE
+    import torch
+    del llm
+    del embedder
+    torch.cuda.empty_cache()
+
+    # 2. THÊM ĐIỀU KIỆN IF ELSE ĐỂ TRÁNH LỖI NAN KHI LIST RỖNG
     results = {
         "config": {
             "dataset": args.dataset,
@@ -296,8 +303,8 @@ def main():
             "embedding_model": cfg.embedding.model_name,
         },
         "graph_complexity": {
-            "avg_nodes": float(np.mean([g["n_nodes"] for g in graph_stats_list])),
-            "avg_edges": float(np.mean([g["n_edges"] for g in graph_stats_list])),
+            "avg_nodes": float(np.mean([g["n_nodes"] for g in graph_stats_list])) if graph_stats_list else 0.0,
+            "avg_edges": float(np.mean([g["n_edges"] for g in graph_stats_list])) if graph_stats_list else 0.0,
         },
     }
 

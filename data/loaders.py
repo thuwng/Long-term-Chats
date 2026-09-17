@@ -69,7 +69,7 @@ def load_locomo(path: str) -> List[Dict[str, Any]]:
                     "speaker": turn.get("speaker", "unknown"),
                     "text": turn.get("text", ""),
                     "date": date,
-                    "session_id": f"session_{sess_num}",
+                    "session_id": f"D{sess_num}",  # <--- ĐÃ SỬA
                 })
 
         # 2. Trích xuất QAs và map chuẩn các trường answer, gold_turn_ids
