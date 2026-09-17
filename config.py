@@ -21,16 +21,16 @@ class LLMConfig:
     # extract_triplets.py and extract_entities.py pass an explicit,
     # length-scaled max_tokens per call (see MEMORAI_LLM_MAX_TOKENS_* below).
     max_tokens: int = int(os.environ.get("MEMORAI_LLM_MAX_TOKENS", "1024"))
-    timeout: int = 120
+    timeout: int = 900
     retries: int = 3
     enable_thinking: bool = os.environ.get("MEMORAI_LLM_ENABLE_THINKING", "0") == "1"
 
     # Hard ceilings for the length-scaled overrides used by the indexing
     # modules, so a pathologically long segment can't request an absurd
     # number of output tokens (cost/latency guard).
-    max_tokens_segmentation_cap: int = int(os.environ.get("MEMORAI_MAX_TOKENS_SEG_CAP", "8000"))
-    max_tokens_filter_cap: int = int(os.environ.get("MEMORAI_MAX_TOKENS_FILTER_CAP", "4000"))
-    max_tokens_extraction_cap: int = int(os.environ.get("MEMORAI_MAX_TOKENS_EXTRACT_CAP", "4000"))
+    max_tokens_segmentation_cap: int = int(os.environ.get("MEMORAI_MAX_TOKENS_SEG_CAP", "2048"))
+    max_tokens_filter_cap: int = int(os.environ.get("MEMORAI_MAX_TOKENS_FILTER_CAP", "1024"))
+    max_tokens_extraction_cap: int = int(os.environ.get("MEMORAI_MAX_TOKENS_EXTRACT_CAP", "1024"))
 
 
 @dataclass

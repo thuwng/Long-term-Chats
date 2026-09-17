@@ -29,7 +29,7 @@ def strip_thinking(text: str) -> str:
         return ""
     return cleaned
 
-def scaled_max_tokens(n_items: int, per_item: int = 4, base: int = 200, cap: int = 4000) -> int:
+def scaled_max_tokens(n_items: int, per_item: int = 4, base: int = 200, cap: int = 2048) -> int:
     """
     Estimates a safe max_tokens budget for prompts that must enumerate one
     output unit (an index, a pipe-delimited row, ...) per input item -
