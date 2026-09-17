@@ -5,10 +5,13 @@ ROUGE-1/2/L, and BERTScore. Uses `rouge-score`, `sacrebleu`, and
 """
 import os, re, logging
 from typing import List, Dict
+import numpy as np  # Thêm thư viện numpy
 
 import sacrebleu
 from rouge_score import rouge_scorer
 
+# Khai báo logger chuẩn (đã xóa import logging bị lặp)
+logger = logging.getLogger(__name__)
 
 _scorer = rouge_scorer.RougeScorer(["rouge1", "rouge2", "rougeL"], use_stemmer=True)
 
@@ -55,23 +58,30 @@ def rouge_scores(pred: str, gold: str) -> Dict[str, float]:
 
 
 def compute_bertscore(preds: List[str], golds: List[str], lang: str = "en",
-                    device: str = None) -> float:
+                      device: str = None) -> float:
     """
-    Thay vì gọi bert-score qua mạng (gây lỗi offline trên Kaggle), 
-    ta có thể dùng cosine similarity của embedding hoặc trả về giá trị xấp xỉ 
-    dựa trên embedding model đã có sẵn trong pipeline để không bị NaN.
+    Tính Semantic Similarity thay cho BERTScore để tránh lỗi offline trên Kaggle.
     """
     try:
-        # Nếu bạn muốn dùng trực tiếp embedding model sẵn có trong pipeline để tính semantic similarity:
         from embeddings import EmbeddingModel
         from config import EmbeddingConfig
         from utils import cosine_sim
+        import torch
         
-        embedder = EmbeddingModel(EmbeddingConfig())
+        # Bắt buộc load model lên CPU để tránh OOM do GPU đang bị LLM chiếm dụng
+        cfg = EmbeddingConfig()
+        cfg.device = "cpu" 
+        
+        embedder = EmbeddingModel(cfg)
         pred_embs = embedder.encode(preds)
         gold_embs = embedder.encode(golds)
         
         sims = [cosine_sim(p, g) for p, g in zip(pred_embs, gold_embs)]
+        
+        # Dọn dẹp RAM ngay sau khi tính xong
+        del embedder
+        import gc; gc.collect()
+        
         return float(np.mean(sims)) * 100
     except Exception as e:
         logger.warning("Không thể tính Semantic Similarity thay thế BERTScore: %s", e)
@@ -85,15 +95,18 @@ def evaluate_generation(preds: List[str], golds: List[str]) -> Dict[str, float]:
         rs = rouge_scores(p, g)
         r1s.append(rs["rouge1"]); r2s.append(rs["rouge2"]); rls.append(rs["rougeL"])
 
-    # Sử dụng Corpus BLEU chuẩn xác hơn cho toàn bộ corpus thay vì trung bình sentence BLEU
-    corpus_bleu_score = sacrebleu.corpus_bleu(preds, [golds]).score
+    # Sử dụng Corpus BLEU chuẩn xác hơn cho toàn bộ corpus
+    try:
+        corpus_bleu_score = sacrebleu.corpus_bleu(preds, [golds]).score
+    except Exception:
+        corpus_bleu_score = 0.0
 
     bert_f1 = compute_bertscore(preds, golds) if preds else float("nan")
     n = max(len(f1s), 1)
 
     return {
         "F1": sum(f1s) / n * 100,
-        "BLEU": corpus_bleu_score,  # Đã là thang điểm 0-100 từ sacrebleu
+        "BLEU": corpus_bleu_score,
         "R-1": sum(r1s) / n,
         "R-2": sum(r2s) / n,
         "R-L": sum(rls) / n,
