@@ -56,17 +56,25 @@ def rouge_scores(pred: str, gold: str) -> Dict[str, float]:
 
 def compute_bertscore(preds: List[str], golds: List[str], lang: str = "en",
                     device: str = None) -> float:
-    logger = logging.getLogger(__name__)
-    if device is None:
-        device = os.environ.get("MEMORAI_BERTSCORE_DEVICE", "cpu")
-
+    """
+    Thay vì gọi bert-score qua mạng (gây lỗi offline trên Kaggle), 
+    ta có thể dùng cosine similarity của embedding hoặc trả về giá trị xấp xỉ 
+    dựa trên embedding model đã có sẵn trong pipeline để không bị NaN.
+    """
     try:
-        from bert_score import score as bertscore_score
-        P, R, F1 = bertscore_score(preds, golds, lang=lang, verbose=False, device=device)
-        return float(F1.mean()) * 100
+        # Nếu bạn muốn dùng trực tiếp embedding model sẵn có trong pipeline để tính semantic similarity:
+        from embeddings import EmbeddingModel
+        from config import EmbeddingConfig
+        from utils import cosine_sim
+        
+        embedder = EmbeddingModel(EmbeddingConfig())
+        pred_embs = embedder.encode(preds)
+        gold_embs = embedder.encode(golds)
+        
+        sims = [cosine_sim(p, g) for p, g in zip(pred_embs, gold_embs)]
+        return float(np.mean(sims)) * 100
     except Exception as e:
-        # Nếu lỗi (không có mạng tải model), chỉ log warning nhẹ và trả về NaN để chạy tiếp
-        logger.warning("Bỏ qua BERTScore do không có kết nối mạng hoặc thiếu model: %s", e)
+        logger.warning("Không thể tính Semantic Similarity thay thế BERTScore: %s", e)
         return float("nan")
 
 
