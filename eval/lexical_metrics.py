@@ -59,32 +59,29 @@ def rouge_scores(pred: str, gold: str) -> Dict[str, float]:
 
 def compute_bertscore(preds: List[str], golds: List[str], lang: str = "en",
                       device: str = None) -> float:
-    """
-    Tính Semantic Similarity thay cho BERTScore để tránh lỗi offline trên Kaggle.
-    """
     try:
-        from embeddings import EmbeddingModel
-        from config import EmbeddingConfig
-        from utils import cosine_sim
-        import torch
+        from bert_score import score
+        import os
         
-        # Bắt buộc load model lên CPU để tránh OOM do GPU đang bị LLM chiếm dụng
-        cfg = EmbeddingConfig()
-        cfg.device = "cpu" 
+        # Đổi đường dẫn này khớp với tên thư mục dataset bạn vừa Add vào Kaggle
+        local_model_path = "/kaggle/input/roberta-large-hf" 
         
-        embedder = EmbeddingModel(cfg)
-        pred_embs = embedder.encode(preds)
-        gold_embs = embedder.encode(golds)
-        
-        sims = [cosine_sim(p, g) for p, g in zip(pred_embs, gold_embs)]
-        
-        # Dọn dẹp RAM ngay sau khi tính xong
-        del embedder
-        import gc; gc.collect()
-        
-        return float(np.mean(sims)) * 100
+        if not os.path.exists(local_model_path):
+            logger.warning(f"Không tìm thấy model offline tại {local_model_path}")
+            return float("nan")
+
+        # Truyền thẳng local path vào model_type. 
+        # Giữ device="cpu" để VRAM GPU được dành trọn vẹn cho vLLM sinh text.
+        P, R, F1 = score(
+            preds, 
+            golds, 
+            lang=lang, 
+            model_type=local_model_path, 
+            device="cpu"
+        )
+        return float(F1.mean()) * 100
     except Exception as e:
-        logger.warning("Không thể tính Semantic Similarity thay thế BERTScore: %s", e)
+        logger.warning("Không thể tính BERTScore chuẩn: %s", e)
         return float("nan")
 
 
