@@ -1,50 +1,91 @@
 """
-Embedding model wrapper. Default: facebook/contriever, matching the paper's
-choice ("Memory embeddings are generated with Contriever to ensure fair
-comparison with prior work", §4.1). Swap `model_name` in config to try
-BGE-M3, MPNet, etc. for the cross-backbone / cross-embedding ablations.
+Central configuration for MemORAI reproduction.
+All hyperparameters referenced in the paper (Sections 3, 4) live here so
+ablations (Section 4.3) can be toggled from one place / CLI overrides.
 """
-import numpy as np
-import torch
-from transformers import AutoModel, AutoTokenizer
-
-from config import EmbeddingConfig
-from utils import cosine_sim  # noqa: F401  (re-exported for backward compatibility)
+import os
+from dataclasses import dataclass, field
 
 
-def mean_pooling(token_embeddings: torch.Tensor, attention_mask: torch.Tensor) -> torch.Tensor:
-    mask = attention_mask.unsqueeze(-1).expand(token_embeddings.size()).float()
-    summed = torch.sum(token_embeddings * mask, dim=1)
-    counted = torch.clamp(mask.sum(dim=1), min=1e-9)
-    return summed / counted
+@dataclass
+class LLMConfig:
+    model_name: str = os.environ.get("MEMORAI_LLM_MODEL", "Qwen/Qwen3-8B")  
+    api_base: str = os.environ.get("MEMORAI_LLM_API_BASE", "http://localhost:8000/v1")
+    api_key: str = os.environ.get("MEMORAI_LLM_API_KEY", "EMPTY")
+    temperature: float = 0.0
+    # NOTE: 512 was too small for structured-extraction prompts (C.1/C.2/C.4/C.6)
+    # on long multi-session conversations -> truncated JSON -> segmentation/
+    # filtering silently fell back to "keep everything" / "one giant segment",
+    # which is what caused the >90% "not enough information" collapse.
+    # This is now just the DEFAULT/fallback; segment.py, filter.py,
+    # extract_triplets.py and extract_entities.py pass an explicit,
+    # length-scaled max_tokens per call (see MEMORAI_LLM_MAX_TOKENS_* below).
+    max_tokens: int = int(os.environ.get("MEMORAI_LLM_MAX_TOKENS", "1024"))
+    timeout: int = 120
+    retries: int = 3
+    enable_thinking: bool = os.environ.get("MEMORAI_LLM_ENABLE_THINKING", "0") == "1"
+
+    # Hard ceilings for the length-scaled overrides used by the indexing
+    # modules, so a pathologically long segment can't request an absurd
+    # number of output tokens (cost/latency guard).
+    max_tokens_segmentation_cap: int = int(os.environ.get("MEMORAI_MAX_TOKENS_SEG_CAP", "8000"))
+    max_tokens_filter_cap: int = int(os.environ.get("MEMORAI_MAX_TOKENS_FILTER_CAP", "4000"))
+    max_tokens_extraction_cap: int = int(os.environ.get("MEMORAI_MAX_TOKENS_EXTRACT_CAP", "4000"))
 
 
-class EmbeddingModel:
-    def __init__(self, cfg: EmbeddingConfig):
-        self.cfg = cfg
-        self.tokenizer = AutoTokenizer.from_pretrained(cfg.model_name)
-        self.model = AutoModel.from_pretrained(cfg.model_name).to(cfg.device)
-        self.model.eval()
+@dataclass
+class JudgeConfig:
+    # GPT-4o as judge (Appendix C.7). Uses the real OpenAI API.
+    model_name: str = os.environ.get("MEMORAI_JUDGE_MODEL", "gpt-4o")
+    api_key: str = os.environ.get("OPENAI_API_KEY", "")
+    temperature: float = 0.0
+    max_tokens: int = 10
 
-    @torch.no_grad()
-    def encode(self, texts, batch_size: int = None) -> np.ndarray:
-        """Encode a string or list of strings into L2-normalized vectors."""
-        single = isinstance(texts, str)
-        if single:
-            texts = [texts]
-        bs = batch_size or self.cfg.batch_size
 
-        all_vecs = []
-        for i in range(0, len(texts), bs):
-            batch = texts[i:i + bs]
-            inputs = self.tokenizer(
-                batch, padding=True, truncation=True,
-                max_length=self.cfg.max_length, return_tensors="pt",
-            ).to(self.cfg.device)
-            outputs = self.model(**inputs)
-            pooled = mean_pooling(outputs.last_hidden_state, inputs["attention_mask"])
-            pooled = torch.nn.functional.normalize(pooled, p=2, dim=1)
-            all_vecs.append(pooled.cpu().numpy())
+@dataclass
+class EmbeddingConfig:
+    # Contriever used for fair comparison with baselines (paper §4.1)
+    model_name: str = os.environ.get("MEMORAI_EMBED_MODEL", "facebook/contriever")
+    device: str = os.environ.get("MEMORAI_EMBED_DEVICE", "cpu")
+    max_length: int = 512
+    batch_size: int = 16
 
-        vecs = np.concatenate(all_vecs, axis=0)
-        return vecs[0] if single else vecs
+
+@dataclass
+class RetrievalConfig:
+    top_k_seed: int = 3          # top-k seed nodes per aspect (segments/entities/relations)
+    top_m_turns: int = 3         # top-m turns returned after ranking
+    damping: float = 0.85        # d in Eq. 2
+    pagerank_iters: int = 20
+    convergence_eps: float = 1e-6
+
+
+@dataclass
+class AblationConfig:
+    """Flags matching Tables 4-8 ablations."""
+    use_topic_segmentation: bool = True      # w/o Topic Seg ablation
+    use_selective_filtering: bool = True     # w/o Selective ablation
+    use_dynamic_weighting: bool = True       # Uniform (w=1) ablation
+    use_subgraph_retrieval: bool = True      # Full Graph ablation
+    use_triplet_enrichment: bool = True      # Turn only ablation
+
+
+@dataclass
+class PathConfig:
+    data_dir: str = "data"
+    prompts_dir: str = "prompts"
+    cache_dir: str = ".cache"
+    output_dir: str = "outputs"
+
+
+@dataclass
+class MemoraiConfig:
+    llm: LLMConfig = field(default_factory=LLMConfig)
+    judge: JudgeConfig = field(default_factory=JudgeConfig)
+    embedding: EmbeddingConfig = field(default_factory=EmbeddingConfig)
+    retrieval: RetrievalConfig = field(default_factory=RetrievalConfig)
+    ablation: AblationConfig = field(default_factory=AblationConfig)
+    paths: PathConfig = field(default_factory=PathConfig)
+
+
+DEFAULT_CONFIG = MemoraiConfig()

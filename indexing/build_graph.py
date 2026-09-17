@@ -130,8 +130,26 @@ def build_conversation_graph(llm, embedder, conv_id: str, turns: List[Dict[str, 
                 if node_id not in G:
                     G.add_node(node_id, type="entity", name=name, description=name,
                                emb=embedder.encode(name))
-            G.add_edge(h_node, t_node_ent, etype="rel", relation=tr["relation"],
-                       source_turns=tr["source_turns"], emb=embedder.encode(tr["relation"]))
+
+            # Merge with an existing identical (head, relation, tail) edge
+            # instead of always inserting a new parallel edge. The same
+            # relational fact frequently gets re-extracted across many
+            # segments of a long multi-session conversation (e.g. "Alex
+            # works_at XYZ" mentioned in session 1 and again in session 15);
+            # without merging, this bloats edge count (avg edges/node was
+            # observed ~20x higher than the paper's Figure 3) and fragments
+            # provenance across many small edges instead of one edge with a
+            # complete source_turns list.
+            merged = False
+            existing_edges = G.get_edge_data(h_node, t_node_ent) or {}
+            for _key, edata in existing_edges.items():
+                if edata.get("etype") == "rel" and edata.get("relation") == tr["relation"]:
+                    edata["source_turns"] = sorted(set(edata.get("source_turns", [])) | set(tr["source_turns"]))
+                    merged = True
+                    break
+            if not merged:
+                G.add_edge(h_node, t_node_ent, etype="rel", relation=tr["relation"],
+                           source_turns=tr["source_turns"], emb=embedder.encode(tr["relation"]))
 
     G.graph["stats"] = stats
     return G

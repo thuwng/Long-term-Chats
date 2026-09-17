@@ -62,7 +62,26 @@ def parse_args():
 
     p.add_argument("--run_baseline", action="store_true", help="also run a dense-retrieval baseline")
     p.add_argument("--run_judge", action="store_true", help="also run GPT-4o-as-judge (costs $$)")
+    p.add_argument("--resume", action="store_true",
+                    help="skip conv_ids already present in <out>_raw.jsonl from a previous "
+                         "(possibly Kaggle-timed-out) run, and append to it instead of "
+                         "overwriting. Recommended for LOCOMO-10's full 10-conversation run.")
     return p.parse_args()
+
+
+def _already_processed_conv_ids(raw_path: str) -> set:
+    done = set()
+    if os.path.exists(raw_path):
+        with open(raw_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    done.add(json.loads(line)["conv_id"])
+                except (json.JSONDecodeError, KeyError):
+                    continue
+    return done
 
 
 def ablation_from_args(args) -> AblationConfig:
@@ -215,10 +234,32 @@ def main():
     # --- THÊM ĐOẠN MỞ FILE RAW NGAY KHI CHẠY ---
     raw_path = args.out.rsplit(".", 1)[0] + "_raw.jsonl"
     os.makedirs(os.path.dirname(raw_path) or ".", exist_ok=True)
-    raw_f = open(raw_path, "w", encoding="utf-8")
+
+    already_done = set()
+    if args.resume:
+        already_done = _already_processed_conv_ids(raw_path)
+        if already_done:
+            logger.info("Resuming: %d conv_ids already in %s, skipping them: %s",
+                        len(already_done), raw_path, sorted(already_done))
+            # Reload previously-written records so final metrics cover the
+            # WHOLE dataset, not just conversations processed in this run
+            # (important on Kaggle where a session can time out mid-run).
+            with open(raw_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    rec = json.loads(line)
+                    mode = rec.pop("mode", "memorai")
+                    rec.pop("conv_id", None)
+                    (all_memorai_records if mode == "memorai" else all_baseline_records).append(rec)
+
+    raw_f = open(raw_path, "a" if args.resume else "w", encoding="utf-8")
 
     conv_iter = tqdm(conversations, desc="[conversations]")
     for conv in conv_iter:
+        if conv["conv_id"] in already_done:
+            continue
         logger.info("=== Processing conversation %s (%d QAs) ===", conv["conv_id"], len(conv["qas"]))
         conv_t0 = time.time()
         records, gstats = run_memorai_on_conversation(llm, embedder, cfg, ablation, conv)

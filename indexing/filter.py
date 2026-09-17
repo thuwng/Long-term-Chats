@@ -10,6 +10,7 @@ from typing import List, Dict, Any
 
 from prompts import load_prompt
 from utils import safe_json_loads
+from llm_client import scaled_max_tokens
 
 
 def _format_conv(turns: List[Dict[str, Any]]) -> str:
@@ -24,7 +25,9 @@ def selective_filter(llm, segment_turns: List[Dict[str, Any]]) -> List[Dict[str,
     prompt_template = load_prompt("c2_selective_filter")
     prompt = prompt_template.format(formatted_conv=_format_conv(segment_turns))
 
-    raw_output = llm.generate(prompt)
+    cap = getattr(getattr(llm, "cfg", None), "max_tokens_filter_cap", 4000)
+    max_tokens = scaled_max_tokens(len(segment_turns), per_item=4, base=200, cap=cap)
+    raw_output = llm.generate(prompt, max_tokens=max_tokens)
     keep_indices = safe_json_loads(raw_output, default=None)
 
     if not isinstance(keep_indices, list) or not all(isinstance(i, int) for i in keep_indices):

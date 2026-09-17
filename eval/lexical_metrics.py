@@ -70,8 +70,19 @@ def compute_bertscore(preds: List[str], golds: List[str], lang: str = "en",
         P, R, F1 = bertscore_score(preds, golds, lang=lang, verbose=False, device=device)
         return float(F1.mean()) * 100
     except Exception as e:  # noqa: BLE001
-        logger.warning("BERTScore failed (device=%s): %s. Returning NaN instead of crashing.",
-                        device, e)
+        # Previously this silently swallowed the traceback, which is why a
+        # 100% BERTScore failure rate (both memorai and dense_baseline
+        # returning NaN in a full run) went unnoticed. Log the full
+        # traceback at ERROR level so it's impossible to miss in Kaggle's
+        # cell output; still return NaN so a flaky BERTScore run doesn't
+        # crash the whole pipeline and lose the other metrics/records.
+        logger.error(
+            "BERTScore failed (device=%s, n_preds=%d): %r. Common causes on "
+            "Kaggle: Internet is OFF (can't download the roberta-large "
+            "baseline model), or a CUDA OOM. Returning NaN for BERTScore "
+            "only - all other metrics/records are unaffected.",
+            device, len(preds), e, exc_info=True,
+        )
         return float("nan")
 
 

@@ -13,10 +13,24 @@ class LLMConfig:
     api_base: str = os.environ.get("MEMORAI_LLM_API_BASE", "http://localhost:8000/v1")
     api_key: str = os.environ.get("MEMORAI_LLM_API_KEY", "EMPTY")
     temperature: float = 0.0
-    max_tokens: int = 512       
+    # NOTE: 512 was too small for structured-extraction prompts (C.1/C.2/C.4/C.6)
+    # on long multi-session conversations -> truncated JSON -> segmentation/
+    # filtering silently fell back to "keep everything" / "one giant segment",
+    # which is what caused the >90% "not enough information" collapse.
+    # This is now just the DEFAULT/fallback; segment.py, filter.py,
+    # extract_triplets.py and extract_entities.py pass an explicit,
+    # length-scaled max_tokens per call (see MEMORAI_LLM_MAX_TOKENS_* below).
+    max_tokens: int = int(os.environ.get("MEMORAI_LLM_MAX_TOKENS", "1024"))
     timeout: int = 120
     retries: int = 3
     enable_thinking: bool = os.environ.get("MEMORAI_LLM_ENABLE_THINKING", "0") == "1"
+
+    # Hard ceilings for the length-scaled overrides used by the indexing
+    # modules, so a pathologically long segment can't request an absurd
+    # number of output tokens (cost/latency guard).
+    max_tokens_segmentation_cap: int = int(os.environ.get("MEMORAI_MAX_TOKENS_SEG_CAP", "8000"))
+    max_tokens_filter_cap: int = int(os.environ.get("MEMORAI_MAX_TOKENS_FILTER_CAP", "4000"))
+    max_tokens_extraction_cap: int = int(os.environ.get("MEMORAI_MAX_TOKENS_EXTRACT_CAP", "4000"))
 
 
 @dataclass

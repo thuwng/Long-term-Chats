@@ -40,16 +40,88 @@ def safe_json_loads(text: str, default: Any = None) -> Any:
             except json.JSONDecodeError:
                 continue
                 
-    # fallback 2: Xử lý lỗi LLM sinh mảng JSON bị cắt cụt (thiếu dấu ']') ở cuối
-    if cleaned.startswith("[") and not cleaned.endswith("]"):
-        # Cắt lùi đến dấu phẩy cuối cùng và đóng mảng
-        fixed_cleaned = cleaned.rsplit(",", 1)[0] + "]"
+    # fallback 2: Xử lý lỗi LLM sinh JSON bị cắt cụt giữa chừng (hết max_tokens).
+    # Hỗ trợ cả JSON lồng nhau (vd. list-of-lists của C.1 segmentation), không
+    # chỉ list phẳng: cắt lùi tới dấu phẩy hợp lệ cuối cùng NGOÀI mọi chuỗi,
+    # rồi đóng lại đúng số ngoặc [ ] { } còn đang mở theo thứ tự LIFO.
+    repaired = _repair_truncated_json(cleaned)
+    if repaired is not None:
         try:
-            return json.loads(fixed_cleaned)
+            return json.loads(repaired)
         except json.JSONDecodeError:
             pass
 
     return default if default is not None else []
+
+
+def _repair_truncated_json(text: str):
+    """
+    Best-effort repair for JSON truncated mid-stream (ran out of max_tokens).
+    Walks the string tracking an open-bracket stack (ignoring brackets inside
+    string literals), trims back to the last safely-closable point, and
+    appends the missing closing brackets in the correct order. Returns None
+    if the text doesn't look like a JSON array/object at all.
+    """
+    text = text.strip()
+    if not text or text[0] not in "[{":
+        return None
+
+    stack = []
+    in_string = False
+    escape = False
+    last_safe_idx = -1  # index right after the last comma/opening bracket at depth-consistent point
+
+    for i, ch in enumerate(text):
+        if in_string:
+            if escape:
+                escape = False
+            elif ch == "\\":
+                escape = True
+            elif ch == '"':
+                in_string = False
+            continue
+
+        if ch == '"':
+            in_string = True
+        elif ch in "[{":
+            stack.append(ch)
+        elif ch in "]}":
+            if stack:
+                stack.pop()
+        elif ch == "," and stack:
+            last_safe_idx = i  # safe to cut right before this comma
+
+    if not stack:
+        return None  # already balanced; the earlier json.loads would have worked
+
+    # Cut off any trailing incomplete element (after the last safe comma),
+    # unless the whole thing is still balanced without cutting (e.g. it was
+    # only missing closing brackets, no dangling partial element).
+    trimmed = text if last_safe_idx == -1 else text[:last_safe_idx]
+
+    # Recompute the open-bracket stack for the trimmed text.
+    stack2 = []
+    in_string = False
+    escape = False
+    for ch in trimmed:
+        if in_string:
+            if escape:
+                escape = False
+            elif ch == "\\":
+                escape = True
+            elif ch == '"':
+                in_string = False
+            continue
+        if ch == '"':
+            in_string = True
+        elif ch in "[{":
+            stack2.append(ch)
+        elif ch in "]}":
+            if stack2:
+                stack2.pop()
+
+    closers = {"[": "]", "{": "}"}
+    return trimmed + "".join(closers[b] for b in reversed(stack2))
 
 
 def parse_pipe_lines(text: str, expected_fields: int):

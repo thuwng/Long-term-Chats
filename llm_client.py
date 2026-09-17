@@ -29,6 +29,18 @@ def strip_thinking(text: str) -> str:
         return ""
     return cleaned
 
+def scaled_max_tokens(n_items: int, per_item: int = 4, base: int = 200, cap: int = 4000) -> int:
+    """
+    Estimates a safe max_tokens budget for prompts that must enumerate one
+    output unit (an index, a pipe-delimited row, ...) per input item -
+    e.g. C.1 segmentation and C.2 selective filtering, which need to emit
+    EVERY message index. A fixed 512-token budget silently truncates these
+    on long conversations, producing invalid JSON that falls back to
+    degenerate behavior (whole-conversation-as-one-segment, keep-everything).
+    """
+    return max(base, min(cap, base + per_item * max(n_items, 0)))
+
+
 class LLMClient:
     """Generic chat-completion client with retries, used for backbone LLM calls."""
 

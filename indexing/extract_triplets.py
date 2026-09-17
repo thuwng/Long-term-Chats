@@ -10,6 +10,7 @@ from typing import List, Dict, Any, Tuple
 
 from prompts import load_prompt
 from utils import parse_pipe_lines
+from llm_client import scaled_max_tokens
 
 
 def _format_segment_for_extraction(turns: List[Dict[str, Any]]) -> str:
@@ -28,7 +29,10 @@ def extract_triplets(llm, filtered_turns: List[Dict[str, Any]]
 
     prompt_template = load_prompt("c6_triplet_extraction")
     prompt = prompt_template.format(segment_text=_format_segment_for_extraction(filtered_turns))
-    raw_output = llm.generate(prompt)
+    cap = getattr(getattr(llm, "cfg", None), "max_tokens_extraction_cap", 4000)
+    # A single turn can yield several triplets, so scale a bit more than 1:1.
+    max_tokens = scaled_max_tokens(len(filtered_turns), per_item=25, base=300, cap=cap)
+    raw_output = llm.generate(prompt, max_tokens=max_tokens)
 
     rows, n_errors = parse_pipe_lines(raw_output, expected_fields=4)
 
