@@ -45,9 +45,19 @@ def extract_triplets(llm, filtered_turns: List[Dict[str, Any]]
         if not head or not relation or not tail:
             n_errors += 1
             continue
+            
+        # Fallback thông minh: Nếu LLM không xuất được index, match chuỗi vào text
+        if not source_turns:
+            source_turns = [t["turn_id"] for t in filtered_turns if (head.lower() in t["text"].lower() or tail.lower() in t["text"].lower())]
+            
+        # Nếu vẫn không tìm được turn gốc, bỏ qua để tránh tạo cạnh rác trong đồ thị
+        if not source_turns:
+            n_errors += 1
+            continue
+
         triplets.append({
             "head": head, "relation": relation, "tail": tail,
-            "source_turns": source_turns or [t["turn_id"] for t in filtered_turns],
+            "source_turns": source_turns,
         })
 
     return triplets, n_errors

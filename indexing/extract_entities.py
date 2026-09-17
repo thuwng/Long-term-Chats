@@ -53,19 +53,28 @@ def extract_entity_descriptions(llm, filtered_turns: List[Dict[str, Any]],
         if not name or not description:
             n_errors += 1
             continue
+            
+        if not turn_ids:
+            turn_ids = [t["turn_id"] for t in filtered_turns if name.lower() in t["text"].lower()]
+            
+        if not turn_ids:
+            n_errors += 1
+            continue
+
         entities.append({
             "name": name,
             "description": description,
-            "turn_ids": turn_ids or [t["turn_id"] for t in filtered_turns],
+            "turn_ids": turn_ids,
         })
 
-    # Ensure every entity mentioned in triplets has at least a placeholder
-    # description so graph construction never drops a node silently.
     covered = {e["name"] for e in entities}
     for missing in entity_names - covered:
-        entities.append({
-            "name": missing, "description": missing,
-            "turn_ids": [t["turn_id"] for t in filtered_turns],
-        })
+        # Fallback tìm turn cho các entity bị sót
+        fallback_turns = [t["turn_id"] for t in filtered_turns if missing.lower() in t["text"].lower()]
+        if fallback_turns:
+            entities.append({
+                "name": missing, "description": missing,
+                "turn_ids": fallback_turns,
+            })
 
     return entities, n_errors

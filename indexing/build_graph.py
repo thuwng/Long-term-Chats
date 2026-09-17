@@ -15,7 +15,7 @@ import logging
 from typing import List, Dict, Any
 
 import networkx as nx
-
+import itertools
 from config import AblationConfig
 from indexing.segment import segment_conversation, no_segmentation_baseline
 from indexing.filter import selective_filter, no_selective_filter_baseline
@@ -51,7 +51,11 @@ def build_conversation_graph(llm, embedder, conv_id: str, turns: List[Dict[str, 
 
     # ---- Phase 1.1: segmentation ----
     if ablation.use_topic_segmentation:
-        segments = segment_conversation(llm, turns)
+        segments = []
+        # Nhóm các turn theo session_id trước để giảm tải context cho LLM
+        for session_id, session_turns in itertools.groupby(turns, key=lambda t: t.get("session_id")):
+            segs = segment_conversation(llm, list(session_turns))
+            segments.extend(segs)
     else:
         segments = no_segmentation_baseline(turns)
     logger.info("    [seg] %d turns -> %d segments", len(turns), len(segments))
