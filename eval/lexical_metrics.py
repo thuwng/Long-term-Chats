@@ -61,16 +61,20 @@ def compute_bertscore(preds: List[str], golds: List[str], lang: str = "en",
                       device: str = None) -> float:
     try:
         from bert_score import score
+        from huggingface_hub import snapshot_download
         import os
         
-        # Đổi đường dẫn này khớp với tên thư mục dataset bạn vừa Add vào Kaggle
-        local_model_path = '/kaggle/input/models/thuwng/roberta-large/pytorch/default/1' 
+        # Tự động tải model roberta-large từ Hugging Face về thư mục working của Kaggle.
+        # Hàm này sẽ trả về chính đường dẫn lưu model (/kaggle/working/roberta-large).
+        # Nếu model đã tải rồi, nó sẽ tự động bỏ qua tải lại (cache hit).
+        local_model_path = snapshot_download(
+            repo_id="FacebookAI/roberta-large",
+            local_dir="/kaggle/working/roberta-large",
+            local_dir_use_symlinks=False
+        )
         
-        if not os.path.exists(local_model_path):
-            logger.warning(f"Không tìm thấy model offline tại {local_model_path}")
-            return float("nan")
-
         # Truyền thẳng local path vào model_type. 
+        # Cung cấp sẵn num_layers=17 để tránh lỗi KeyError do custom path.
         # Giữ device="cpu" để VRAM GPU được dành trọn vẹn cho vLLM sinh text.
         P, R, F1 = score(
             preds, golds, lang=lang, 
