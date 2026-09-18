@@ -64,7 +64,7 @@ def compute_bertscore(preds: List[str], golds: List[str], lang: str = "en",
         import os
         
         # Đổi đường dẫn này khớp với tên thư mục dataset bạn vừa Add vào Kaggle
-        local_model_path = "/kaggle/input/models/thuwng/roberta-large/pytorch/default/1" 
+        local_model_path = '/kaggle/input/models/thuwng/roberta-large/pytorch/default/1' 
         
         if not os.path.exists(local_model_path):
             logger.warning(f"Không tìm thấy model offline tại {local_model_path}")
@@ -73,10 +73,11 @@ def compute_bertscore(preds: List[str], golds: List[str], lang: str = "en",
         # Truyền thẳng local path vào model_type. 
         # Giữ device="cpu" để VRAM GPU được dành trọn vẹn cho vLLM sinh text.
         P, R, F1 = score(
-            preds, 
-            golds, 
-            lang=lang, 
+            preds, golds, lang=lang, 
             model_type=local_model_path, 
+            num_layers=17,
+            idf=False,
+            rescale_with_baseline=False,
             device="cpu"
         )
         return float(F1.mean()) * 100

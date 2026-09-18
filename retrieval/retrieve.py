@@ -56,7 +56,8 @@ def format_context(Gq: nx.MultiDiGraph, top_turn_nodes: List[str],
     lines = ["Relevant conversation turns:"]
     for n in turns_sorted:
         data = Gq.nodes[n]
-        lines.append(f"- [{data['turn_id']}] {data['speaker']}: {data['text']}")
+        date_str = f" ({data['date']})" if data.get('date') else ""
+        lines.append(f"- [{data['turn_id']}{date_str}] {data['speaker']}: {data['text']}")
 
     if use_triplets and triplets:
         lines.append("\nSupporting facts (entity - relation - entity):")

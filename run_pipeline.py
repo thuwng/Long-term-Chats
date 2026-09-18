@@ -172,7 +172,7 @@ def run_dense_baseline_on_conversation(embedder, llm, cfg, conv):
 
         top_turns = [turns[i] for i in ranked_idx[: cfg.retrieval.top_m_turns]]
         context = "Relevant conversation turns:\n" + "\n".join(
-            f"- [{t['turn_id']}] {t['speaker']}: {t['text']}" for t in top_turns
+            f"- [{t['turn_id']}{' (' + t['date'] + ')' if t.get('date') else ''}] {t['speaker']}: {t['text']}" for t in top_turns
         )
         pred = generate_answer(llm, context, qa["question"])
 

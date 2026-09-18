@@ -17,11 +17,22 @@ import numpy as np
 from utils import cosine_sim
 
 
-def _top_k_nodes(G: nx.MultiDiGraph, node_type: str, q_emb: np.ndarray, k: int) -> List[str]:
-    scored = [
-        (n, cosine_sim(q_emb, data["emb"]))
-        for n, data in G.nodes(data=True) if data.get("type") == node_type
-    ]
+def _top_k_nodes(G, node_type, q_emb, k, degree_penalty=True):
+    scored = []
+    for n, data in G.nodes(data=True):
+        if data.get("type") != node_type: 
+            continue
+            
+        sim = cosine_sim(q_emb, data["emb"])
+        
+        # THÊM LOGIC PHẠT HUB ENTITY
+        if degree_penalty and node_type == "entity":
+            deg = G.out_degree(n)  # Số lượng edge (turn) nối tới
+            if deg > 0:
+                sim = sim / np.log(deg + np.e)   # Giảm điểm các hub xuất hiện quá nhiều
+                
+        scored.append((n, sim))
+        
     scored.sort(key=lambda x: x[1], reverse=True)
     return [n for n, _ in scored[:k]]
 

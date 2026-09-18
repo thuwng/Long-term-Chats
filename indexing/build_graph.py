@@ -85,6 +85,7 @@ def build_conversation_graph(llm, embedder, conv_id: str, turns: List[Dict[str, 
             if t_node not in G:
                 G.add_node(t_node, type="turn", text=t["text"], turn_id=t["turn_id"],
                            speaker=t["speaker"], segment_idx=seg_idx, conv_id=conv_id,
+                           date=t.get("date"),  # THÊM DÒNG NÀY
                            emb=embedder.encode(t["text"] or " "))
             G.add_edge(t_node, seg_node, etype="turn_segment")
             G.add_edge(seg_node, t_node, etype="turn_segment")
